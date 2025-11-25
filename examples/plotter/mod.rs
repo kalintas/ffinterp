@@ -15,7 +15,7 @@ impl eframe::App for InterpolationApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Interpolation Viewer");
-            
+
             Plot::new("plot")
                 .legend(Legend::default())
                 .show(ui, |plot_ui| {
@@ -45,7 +45,7 @@ pub fn show_plot(data: PlotData) -> Result<(), eframe::Error> {
         viewport: egui::ViewportBuilder::default().with_inner_size([1024.0, 768.0]),
         ..Default::default()
     };
-    
+
     eframe::run_native(
         "Plotter",
         options,

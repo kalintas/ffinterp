@@ -38,7 +38,6 @@ where
         + ValidField
         + ConstructType,
 {
-
     fn evaluate(&self, x: T) -> T {
         self.interpolant.evaluate(x)
     }

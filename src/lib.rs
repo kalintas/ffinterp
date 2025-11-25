@@ -1,2 +1,2 @@
-pub mod bindings;
+mod bindings;
 pub mod interpolation;

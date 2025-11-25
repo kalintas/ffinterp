@@ -1,10 +1,10 @@
-mod plotter; 
+mod plotter;
 
 use std::f64::consts::PI;
 
-use ffinterp::interpolation::{one_d::Interpolant1D, FreeVariables, Interpolant};
+use ffinterp::interpolation::{FreeVariables, Interpolant, one_d::Interpolant1D};
 use nalgebra::Point2;
-use plotter::{show_plot, PlotData}; 
+use plotter::{PlotData, show_plot};
 
 fn main() -> Result<(), eframe::Error> {
     let n = 1000;
@@ -21,12 +21,16 @@ fn main() -> Result<(), eframe::Error> {
     for i in 0..test_point_count {
         test_x.push((i as f64 / test_point_count as f64) * 2.0 * PI - PI);
     }
-    
+
     let result = interpolant.evaluate_many(&test_x);
 
     let data = PlotData {
         real: test_x.iter().map(|&x| [x, x.sin()]).collect(),
-        interp: test_x.iter().zip(result.iter()).map(|(&x, &y)| [x, y]).collect(),
+        interp: test_x
+            .iter()
+            .zip(result.iter())
+            .map(|(&x, &y)| [x, y])
+            .collect(),
         points: points.iter().map(|p| [p.x, p.y]).collect(),
     };
 
