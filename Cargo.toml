@@ -1,0 +1,21 @@
+[package]
+name = "ffinterp"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+nalgebra = "0.34.1"
+num = "0.4.3"
+jlrs = { version = "0.22.1", features = ["ccall", "jlrs-derive"] }
+rayon = "1.11.0"
+
+[dev-dependencies]
+criterion = "0.7" 
+assert_approx_eq = "1.1.0"
+
+[[bench]]
+name = "interpolation_bench"
+harness = false

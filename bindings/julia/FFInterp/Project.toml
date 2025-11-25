@@ -1,0 +1,12 @@
+name = "FFInterp"
+uuid = "5c9c0a85-6ea0-4742-a409-63abae4150ac"
+version = "0.1.0"
+authors = ["kalintas <keremkalinntas@gmail.com>"]
+
+[deps]
+JlrsCore = "29be08bc-e5fd-4da2-bbc1-72011c6ea2c9"
+StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
+
+[compat]
+JlrsCore = "0.6.1"
+StaticArrays = "1.9.15"
