@@ -2,6 +2,8 @@ use std::fmt::Debug;
 
 use num::Float;
 
+use cust::DeviceCopy;
+
 pub mod one_d;
 
 #[derive(Clone, Debug)]
@@ -10,7 +12,8 @@ pub enum FreeVariables<T> {
     Array(Vec<T>),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[repr(C)]
+#[derive(Debug, Clone, Copy, DeviceCopy)]
 struct IFSMap<T> {
     a: T,
     d: T,
@@ -24,4 +27,9 @@ pub trait Interpolant {
 
     fn evaluate(&self, x: Self::Scalar) -> Self::Scalar;
     fn evaluate_many(&self, points: &[Self::Scalar]) -> Vec<Self::Scalar>;
+
+    fn evaluate_gpu(
+        &self,
+        points: &[Self::Scalar],
+    ) -> Result<Vec<Self::Scalar>, Box<dyn std::error::Error>>;
 }

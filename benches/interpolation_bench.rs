@@ -17,7 +17,7 @@ pub fn bench_evaluation(c: &mut Criterion) {
     let interpolant = setup_interpolant(10000);
 
     let mut group = c.benchmark_group("1d_sine_wave_interpolation");
-    for &n_points in &[10_000, 100_000, 1_000_000] {
+    for &n_points in &[10_000, 100_000, 1_000_000, 10_000_000] {
         let input_size = n_points;
         let inputs: Vec<f64> = (0..input_size)
             .map(|i| i as f64 / input_size as f64)
@@ -32,6 +32,10 @@ pub fn bench_evaluation(c: &mut Criterion) {
 
         group.bench_function(format!("parallel_{}_pts", input_size), |b| {
             b.iter(|| black_box(interpolant.evaluate_many(black_box(&inputs))))
+        });
+
+        group.bench_function(format!("gpu_{}_pts", input_size), |b| {
+            b.iter(|| black_box(interpolant.evaluate_gpu(black_box(&inputs)).unwrap()))
         });
     }
     group.finish();

@@ -10,8 +10,10 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterato
 
 use crate::interpolation::{FreeVariables, IFSMap, Interpolant};
 
+use cust::{memory::DeviceCopy, prelude::*};
+
 #[derive(Debug, Clone)]
-pub struct Interpolant1D<T: Float + Debug + 'static> {
+pub struct Interpolant1D<T: Float + Debug + 'static + DeviceCopy> {
     maps: Vec<IFSMap<T>>,
     iterations: usize,
     /// First point in the given interpolated points.
@@ -22,7 +24,7 @@ pub struct Interpolant1D<T: Float + Debug + 'static> {
 
 impl<T> Interpolant1D<T>
 where
-    T: Debug + Float + 'static + Send + Sync + AddAssign + MulAssign + Sum,
+    T: Debug + Float + 'static + Send + Sync + AddAssign + MulAssign + Sum + DeviceCopy,
 {
     /// A helper function that solves the cubic hermite spline for the given parameters.
     /// Returns the resulting coefficients p(t) = at^3 + bt^2 + ct + d in order.
@@ -150,7 +152,7 @@ where
 
 impl<T> Interpolant for Interpolant1D<T>
 where
-    T: Float + Debug + AddAssign + MulAssign + Send + Sync,
+    T: Float + Debug + AddAssign + MulAssign + Send + Sync + DeviceCopy,
 {
     type Scalar = T;
 
@@ -212,8 +214,70 @@ where
         y_accumulated
     }
 
+    /// Evaluates given points in parallel. And returns the result in a Vec.
+    /// Basicaly calls evaluate function for each point.
     fn evaluate_many(&self, points: &[Self::Scalar]) -> Vec<Self::Scalar> {
         points.par_iter().map(|&x| self.evaluate(x)).collect()
+    }
+
+    /// Evaluates given points in the GPU using CUDA.
+    /// It launches the kernel for the GPU and copies the points.
+    /// So there is a big overhead to this function every time it gets called.
+    /// It might only makes sense using it for very large amounts of data.
+    fn evaluate_gpu(&self, points: &[T]) -> Result<Vec<T>, Box<dyn std::error::Error>> {
+        // Initialize CUDA with default flags
+        cust::init(cust::CudaFlags::empty())?;
+        let device = Device::get_device(0)?;
+
+        let _ctx = Context::new(device)?;
+
+        // Load the ptx created in the build.
+        let ptx = include_str!(concat!(env!("OUT_DIR"), "/kernels.ptx"));
+        let module = Module::from_ptx(ptx, &[])?;
+
+        // Select the function.
+        let kernel_name = if std::mem::size_of::<T>() == 4 {
+            "interpolate_f32"
+        } else {
+            "interpolate_f64"
+        };
+        let stream = Stream::new(StreamFlags::NON_BLOCKING, None)?;
+        let kernel = module.get_function(kernel_name)?;
+
+        // Allocate buffers.
+        let gpu_maps = DeviceBuffer::from_slice(&self.maps)?;
+        let gpu_inputs = DeviceBuffer::from_slice(points)?;
+        let gpu_outputs = unsafe { DeviceBuffer::uninitialized(points.len())? };
+
+        // Select  (hard coded for now).
+        let threads_per_block = 256;
+        // Use .len() on the slice passed into the function
+        let blocks_per_grid = (points.len() + threads_per_block - 1) / threads_per_block;
+
+        // Launch kernel
+        unsafe {
+            launch!(
+                kernel<<<blocks_per_grid as u32, threads_per_block as u32, 0, stream>>>(
+                    gpu_maps.as_device_ptr(),
+                    gpu_maps.len(),
+                    gpu_inputs.as_device_ptr(),
+                    gpu_inputs.len(),
+                    gpu_outputs.as_device_ptr(),
+                    self.iterations,
+                    self.first_point.x,
+                    self.first_point.y,
+                    self.last_point.x,
+                    self.last_point.y
+                )
+            )?;
+        }
+
+        // Retrieve the results.
+        stream.synchronize()?;
+        let mut results = vec![T::zero(); points.len()];
+        gpu_outputs.copy_to(&mut results)?;
+
+        Ok(results)
     }
 }
 

@@ -11,6 +11,11 @@ nalgebra = "0.34.1"
 num = "0.4.3"
 jlrs = { version = "0.22.1", features = ["ccall", "jlrs-derive"] }
 rayon = "1.11.0"
+cust = { git = "https://github.com/rust-gpu/rust-cuda", rev = "7fa76f3d717038a92c90bf4a482b0b8dd3259344" }
+kernels = { path = "kernels" }
+
+[build-dependencies]
+cuda_builder = { git = "https://github.com/rust-gpu/rust-cuda", rev = "7fa76f3d717038a92c90bf4a482b0b8dd3259344", features = ["rustc_codegen_nvvm"] }
 
 [dev-dependencies]
 criterion = "0.7" 

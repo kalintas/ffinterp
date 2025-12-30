@@ -197,7 +197,8 @@ where
         + Float
         + AddAssign
         + MulAssign
-        + Sum,
+        + Sum
+        + cust::memory::DeviceCopy,
 {
     let points_slice = unsafe {
         let raw_ptr = pts.data_ptr().cast::<Point2<T>>();
