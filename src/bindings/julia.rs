@@ -1,5 +1,6 @@
 use core::panic;
 use std::fmt::Debug;
+use std::iter::Sum;
 use std::ops::{AddAssign, MulAssign};
 use std::sync::Arc;
 
@@ -195,7 +196,8 @@ where
         + Clone
         + Float
         + AddAssign
-        + MulAssign,
+        + MulAssign
+        + Sum,
 {
     let points_slice = unsafe {
         let raw_ptr = pts.data_ptr().cast::<Point2<T>>();

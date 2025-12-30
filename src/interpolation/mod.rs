@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use num::Float;
 
 pub mod one_d;
@@ -9,17 +11,16 @@ pub enum FreeVariables<T> {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct AffineMap<T> {
+struct IFSMap<T> {
     a: T,
-    c: T,
     d: T,
     e: T,
-    f: T,
+    q: [T; 4],
     end_x: T,
 }
 
 pub trait Interpolant {
-    type Scalar: Float + Clone;
+    type Scalar: Float + Clone + Debug + 'static;
 
     fn evaluate(&self, x: Self::Scalar) -> Self::Scalar;
     fn evaluate_many(&self, points: &[Self::Scalar]) -> Vec<Self::Scalar>;

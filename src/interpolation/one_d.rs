@@ -1,6 +1,6 @@
 use std::{
-    cmp::Ordering,
     fmt::Debug,
+    iter::Sum,
     ops::{AddAssign, MulAssign},
 };
 
@@ -8,19 +8,50 @@ use nalgebra::Point2;
 use num::{Float, Zero};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
-use crate::interpolation::{AffineMap, FreeVariables, Interpolant};
+use crate::interpolation::{FreeVariables, IFSMap, Interpolant};
 
 #[derive(Debug, Clone)]
 pub struct Interpolant1D<T: Float + Debug + 'static> {
-    points: Vec<Point2<T>>,
-    maps: Vec<AffineMap<T>>,
+    maps: Vec<IFSMap<T>>,
     iterations: usize,
+    /// First point in the given interpolated points.
+    first_point: Point2<T>,
+    /// Last point in the given interpolated points.
+    last_point: Point2<T>,
 }
 
 impl<T> Interpolant1D<T>
 where
-    T: Debug + Float + 'static + Send + Sync,
+    T: Debug + Float + 'static + Send + Sync + AddAssign + MulAssign + Sum,
 {
+    /// A helper function that solves the cubic hermite spline for the given parameters.
+    /// Returns the resulting coefficients p(t) = at^3 + bt^2 + ct + d in order.
+    fn solve_cubic_hermite(y0: T, yn: T, m0: T, mn: T) -> [T; 4] {
+        let two = T::from(2.0).unwrap();
+        let three = T::from(3.0).unwrap();
+
+        // Coefficients for p(t) = at^3 + bt^2 + ct + d on t in [0, 1]
+        let d = y0;
+        let c = m0;
+        let b = three * (yn - y0) - (two * m0 + mn);
+        let a = (two * y0 - two * yn) + (m0 + mn);
+
+        [d, c, b, a]
+    }
+
+    /// Creates a new Interpolant for the given points and the free variables.
+    /// This will create points.len() - 1 IFSMaps internally to map every point to other.
+    /// Currently by default it uses a mixture between fractal interpolation and cubic hermite
+    /// spline.
+    /// # Arguments
+    /// * `points` - Strictly sorted 2d points. If not passed sorted created interpolant will not
+    /// give correct results.
+    /// * 'free_variables' - Free variables or vertical scaling factors for the IFSMaps. They
+    /// should be either a FreeVariables::Scalar or a FreeVariables::Array containing an array with
+    /// the size points.len() - 1. Each variable should be in the range (-1, 1). A scalar 0 for the
+    /// free variable would make the Interpolant a cubic hermite spline negating all the fractal
+    /// interpolation.
+    /// * 'iterations' - The maximum iteration count used in the evaluation methods.
     pub fn new(points: &[Point2<T>], free_variables: FreeVariables<T>, iterations: usize) -> Self {
         let n = points.len();
 
@@ -28,13 +59,30 @@ where
             panic!("More than one point is required to create the Interpolant.");
         }
 
-        let mut points: Vec<Point2<T>> = points.to_vec();
-        points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap_or(Ordering::Equal));
+        if let FreeVariables::Array(array) = &free_variables {
+            if array.len() != points.len() - 1 {
+                panic!(
+                    "Invalid array size for the free_variables. It should be an array with the size points.len() - 1."
+                );
+            }
+        }
 
-        let p0 = points.first().unwrap();
-        let pn = points.last().unwrap();
-        let total_x_range = pn.x - p0.x;
+        let first_point = points.first().unwrap();
+        let last_point = points.last().unwrap();
+        let total_x_range = last_point.x - first_point.x;
 
+        // Find the derivatives for the points.
+        let mut ks = Vec::with_capacity(n);
+        // k0 using finite difference (forward)
+        ks.push((points[1].y - points[0].y) / (points[1].x - points[0].x));
+        // Interior points using central difference
+        for i in 1..n - 1 {
+            ks.push((points[i + 1].y - points[i - 1].y) / (points[i + 1].x - points[i - 1].x));
+        }
+        // kn using finite difference (backward)
+        ks.push((points[n - 1].y - points[n - 2].y) / (points[n - 1].x - points[n - 2].x));
+
+        // Build maps in parallel.
         let maps = (0..(n - 1))
             .into_par_iter()
             .map(|i| {
@@ -46,28 +94,57 @@ where
                     FreeVariables::Array(array) => array[i],
                 };
 
+                // Fractal affine map parameters.
                 let a = (p_next.x - p.x) / total_x_range;
-                let e = (pn.x * p.x - p0.x * p_next.x) / total_x_range;
-                let c = (p_next.y - p.y) / total_x_range - di * (pn.y - p0.y) / total_x_range;
-                let f = (pn.x * p.y - p0.x * p_next.y) / total_x_range
-                    - di * (pn.x * p0.y - p0.x * pn.y) / total_x_range;
+                let e = (last_point.x * p.x - first_point.x * p_next.x) / total_x_range;
 
-                AffineMap {
+                // Values for the polynomial q in the fractal-spline formulation (these are
+                // the function values after subtracting the d_i * endpoint contributions).
+                let y_start = p.y - di * first_point.y;
+                let y_end = p_next.y - di * last_point.y;
+
+                let k_start_global = a * ks[i] - di * ks[0];
+                let k_end_global = a * ks[i + 1] - di * ks[n - 1];
+
+                let k_start_local = k_start_global * a;
+                let k_end_local = k_end_global * a;
+
+                // Find the q which is the coefficients for the hermite spline.
+                let q = Self::solve_cubic_hermite(y_start, y_end, k_start_local, k_end_local);
+
+                IFSMap {
                     a,
-                    c,
                     d: di,
                     e,
-                    f,
+                    q,
                     end_x: p_next.x,
                 }
             })
             .collect();
 
         Self {
-            points,
             maps,
             iterations,
+            first_point: *first_point,
+            last_point: *last_point,
         }
+    }
+
+    /// Returns the MSE(Mean Sqaure Error) of the Interpolant calculated from the given test
+    /// points.
+    pub fn get_mse(&self, test_points: &[Point2<T>]) -> T {
+        let n = T::from(test_points.len()).unwrap();
+
+        test_points
+            .par_iter()
+            .map(|p: &Point2<T>| -> T {
+                let y_pred = self.evaluate(p.x);
+                let y_true = p.y;
+                let diff = y_pred - y_true;
+                diff * diff
+            })
+            .sum::<T>()
+            / n
     }
 }
 
@@ -77,32 +154,58 @@ where
 {
     type Scalar = T;
 
+    /// Evaluates a single point and returns the result.
+    /// The point should be in the range of the Interpolant. It will get clamped if its not.
     fn evaluate(&self, mut x: Self::Scalar) -> Self::Scalar {
-        let first_point = self.points.first().unwrap();
-        let last_point = self.points.last().unwrap();
+        let p0_x = self.first_point.x;
+        let pn_x = self.last_point.x;
 
-        if x <= first_point.x {
-            return first_point.y;
+        // Boundary checks
+        if x <= p0_x {
+            return self.first_point.y;
         }
-        if x >= last_point.x {
-            return last_point.y;
+        if x >= pn_x {
+            return self.last_point.y;
         }
 
-        let mut y_accumulated = Zero::zero();
-        let mut d_product = T::from(1.0).unwrap();
+        let mut y_accumulated = T::zero();
+        let mut d_product = T::one();
 
         for _ in 0..self.iterations {
-            let map_index = self.maps.partition_point(|map| map.end_x <= x);
-            let map = self.maps[map_index];
+            let map_idx = self.maps.partition_point(|m| m.end_x <= x);
+            let map = &self.maps[map_idx];
 
-            let x_prev = (x - map.e) / map.a;
-            let term = map.c * x_prev + map.f;
+            let start_x = if map_idx == 0 {
+                p0_x
+            } else {
+                self.maps[map_idx - 1].end_x
+            };
+            // Find the normalized local coordinate.
+            let u = (x - start_x) / (map.end_x - start_x);
 
-            y_accumulated += d_product * term;
+            // Evaluate q(u) using Horner's Method
+            let mut q_val = T::zero();
+            for &coeff in map.q.iter().rev() {
+                q_val = q_val * u + coeff;
+            }
+
+            y_accumulated += d_product * q_val;
             d_product *= map.d;
+
+            // Find the x for the next iteration. Clamp the values so it doesn't explode.
+            let mut x_prev = (x - map.e) / map.a;
+            if x_prev < p0_x {
+                x_prev = p0_x;
+            }
+            if x_prev > pn_x {
+                x_prev = pn_x;
+            }
+
             x = x_prev;
 
-            if d_product.abs() < T::from(1e-9).unwrap() {
+            // After d_product gets this small there is no need to continue the iterations.
+            // Because it doesn't affect the result.
+            if d_product.abs() < T::from(f64::EPSILON * 100.0).unwrap() {
                 break;
             }
         }
@@ -116,33 +219,66 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::f64;
+
     use assert_approx_eq::assert_approx_eq;
 
     use super::*;
 
-    #[test]
-    fn interpolant1d_evaluate_works() {
-        let n = 1000;
+    fn test_with_function<T: Fn(f64) -> f64>(func: T) {
+        let n = 10000;
         let mut points = Vec::<Point2<f64>>::with_capacity(n);
         for i in 0..n {
             let x = i as f64 / n as f64;
-            points.push(Point2::new(x, x.sin()));
+            points.push(Point2::new(x, func(x)));
         }
 
-        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.01), 10);
+        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.01), 100);
 
         points.iter().for_each(|point| {
             let value = interpolant.evaluate(point.x);
             assert_approx_eq!(value, point.y);
         });
 
-        let test_points_n = n * 5;
+        let test_points_n = n * 10;
 
+        let mut mse = 0.0;
         for i in 0..test_points_n {
-            let x = i as f64 / n as f64;
+            let x = i as f64 / test_points_n as f64;
             let value = interpolant.evaluate(x);
-            // TODO: figure out the acceptable error.
-            //assert_approx_eq!(value, x.sin());
+
+            let diff = value - func(x);
+            mse += diff * diff;
+            //assert_approx_eq!(value, func(x), f64::EPSILON * 1000.0);
         }
+        mse /= test_points_n as f64;
+        assert_approx_eq!(mse, f64::EPSILON * 100.0);
+    }
+
+    #[test]
+    fn interpolant1d_sine_wave_evaluate_works() {
+        test_with_function(|x| x.sin())
+    }
+
+    #[test]
+    fn interpolant1d_irregular_data_evaluate_works() {
+        test_with_function(|x| {
+            let mut product = 1.0;
+
+            for n in 1..=1000 {
+                let magnitude = 0.5f64.powi(n);
+
+                if 1.0 + magnitude == 1.0 {
+                    break;
+                }
+
+                let angle = 6.0f64.powi(n) * f64::consts::PI * x;
+                let term = 1.0 + magnitude * angle.sin();
+
+                product *= term;
+            }
+
+            product
+        })
     }
 }
