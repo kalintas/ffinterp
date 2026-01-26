@@ -34,9 +34,12 @@ pub fn bench_evaluation(c: &mut Criterion) {
             b.iter(|| black_box(interpolant.evaluate_many(black_box(&inputs))))
         });
 
-        group.bench_function(format!("gpu_{}_pts", input_size), |b| {
-            b.iter(|| black_box(interpolant.evaluate_gpu(black_box(&inputs)).unwrap()))
-        });
+        #[cfg(feature = "cuda")]
+        {
+            group.bench_function(format!("gpu_{}_pts", input_size), |b| {
+                b.iter(|| black_box(interpolant.evaluate_gpu(black_box(&inputs)).unwrap()))
+            });
+        }
     }
     group.finish();
 }
