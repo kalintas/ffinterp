@@ -8,12 +8,18 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 nalgebra = "0.34.1"
+# For numeric traits such as Float
 num = "0.4.3"
-jlrs = { version = "0.22.1", features = ["ccall", "jlrs-derive"] }
+# Used for easy data parallelism 
 rayon = "1.11.0"
+# For Julia bindings
+jlrs = { version = "0.22.1", features = ["ccall", "jlrs-derive"] }
+# For Python bindings
+pyo3 = { version = "0.27.2", features = [ "abi3-py38" ] }
+numpy = "0.27.1"
+# Optional CUDA dependencies
 cust = { git = "https://github.com/rust-gpu/rust-cuda", rev = "7fa76f3d717038a92c90bf4a482b0b8dd3259344", optional = true }
 kernels = { path = "kernels", optional = true }
-rand = "0.9.2"
 
 [build-dependencies]
 cuda_builder = { git = "https://github.com/rust-gpu/rust-cuda", rev = "7fa76f3d717038a92c90bf4a482b0b8dd3259344", features = ["rustc_codegen_nvvm"], optional = true }
@@ -22,9 +28,10 @@ cuda_builder = { git = "https://github.com/rust-gpu/rust-cuda", rev = "7fa76f3d7
 cuda = [ "dep:cust", "dep:kernels", "dep:cuda_builder" ]
 
 [dev-dependencies]
+# Used for benchmarking
 criterion = "0.7" 
 assert_approx_eq = "1.1.0"
-# Plotting
+# For plotting in the examples
 egui_plot = "0.34.0"
 eframe = "0.33.2"
 
