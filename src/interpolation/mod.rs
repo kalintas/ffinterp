@@ -2,6 +2,7 @@ use std::fmt::Debug;
 
 use num::Float;
 
+#[cfg(feature = "cuda")]
 use cust::DeviceCopy;
 
 pub mod one_d;
@@ -13,7 +14,8 @@ pub enum FreeVariables<T> {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy, DeviceCopy)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "cuda", derive(DeviceCopy))]
 struct IFSMap<T> {
     a: T,
     d: T,
@@ -28,6 +30,7 @@ pub trait Interpolant {
     fn evaluate(&self, x: Self::Scalar) -> Self::Scalar;
     fn evaluate_many(&self, points: &[Self::Scalar]) -> Vec<Self::Scalar>;
 
+    #[cfg(feature = "cuda")]
     fn evaluate_gpu(
         &self,
         points: &[Self::Scalar],

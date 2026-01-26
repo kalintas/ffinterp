@@ -1,9 +1,11 @@
 use std::env;
 use std::path;
 
+#[cfg(feature = "cuda")]
 use cuda_builder::CudaBuilder;
 
-fn main() {
+#[cfg(feature = "cuda")]
+fn build_cuda() {
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=kernels");
 
@@ -15,4 +17,11 @@ fn main() {
         .copy_to(out_dir.join("kernels.ptx"))
         .build()
         .unwrap();
+}
+
+fn main() {
+    #[cfg(feature = "cuda")]
+    {
+        build_cuda();
+    }
 }

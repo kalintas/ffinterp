@@ -16,6 +16,16 @@ use jlrs::{prelude::*, weak_handle};
 use nalgebra::Point2;
 use num::Float;
 
+// For CUDA feature
+#[cfg(feature = "cuda")]
+use cust::memory::DeviceCopy;
+
+// TODO: Find a better way to conditionally add this trait.
+#[cfg(not(feature = "cuda"))]
+pub trait DeviceCopy {}
+#[cfg(not(feature = "cuda"))]
+impl<T> DeviceCopy for T {}
+
 use crate::interpolation::one_d::Interpolant1D;
 use crate::interpolation::{FreeVariables, Interpolant};
 use jlrs::data::managed::array::{TypedVector, TypedVectorRet};
@@ -198,7 +208,7 @@ where
         + AddAssign
         + MulAssign
         + Sum
-        + cust::memory::DeviceCopy,
+        + DeviceCopy,
 {
     let points_slice = unsafe {
         let raw_ptr = pts.data_ptr().cast::<Point2<T>>();

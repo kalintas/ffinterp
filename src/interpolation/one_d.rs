@@ -10,7 +10,14 @@ use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterato
 
 use crate::interpolation::{FreeVariables, IFSMap, Interpolant};
 
+#[cfg(feature = "cuda")]
 use cust::{memory::DeviceCopy, prelude::*};
+
+// TODO: Find a better way to conditionally add this trait.
+#[cfg(not(feature = "cuda"))]
+pub trait DeviceCopy {}
+#[cfg(not(feature = "cuda"))]
+impl<T> DeviceCopy for T {}
 
 #[derive(Debug, Clone)]
 pub struct Interpolant1D<T: Float + Debug + 'static + DeviceCopy> {
@@ -224,6 +231,7 @@ where
     /// It launches the kernel for the GPU and copies the points.
     /// So there is a big overhead to this function every time it gets called.
     /// It might only makes sense using it for very large amounts of data.
+    #[cfg(feature = "cuda")]
     fn evaluate_gpu(&self, points: &[T]) -> Result<Vec<T>, Box<dyn std::error::Error>> {
         // Initialize CUDA with default flags
         cust::init(cust::CudaFlags::empty())?;
