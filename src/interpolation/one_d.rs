@@ -162,6 +162,27 @@ where
     T: Float + Debug + AddAssign + MulAssign + Send + Sync + DeviceCopy,
 {
     type Scalar = T;
+    
+    /// Calculates the definite integral of the fractal function from the first
+    /// point to the last point.
+    fn integrate(&self) -> Self::Scalar {
+        let mut sum_q_scaled = T::zero();
+        let mut sum_ad = T::zero();
+
+        for map in &self.maps {
+            // Integral of the cubic polynomial q.
+            let q_int = map.q[0] 
+                + map.q[1] / T::from(2.0).unwrap() 
+                + map.q[2] / T::from(3.0).unwrap() 
+                + map.q[3] / T::from(4.0).unwrap();
+
+            // Summing up the scaled integrals and the d * a products.
+            sum_q_scaled += q_int * map.a; 
+            sum_ad += map.a * map.d;
+        }
+
+        sum_q_scaled / (T::one() - sum_ad)
+    }
 
     /// Evaluates a single point and returns the result.
     /// The point should be in the range of the Interpolant. It will get clamped if its not.

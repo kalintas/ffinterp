@@ -27,6 +27,8 @@ struct IFSMap<T> {
 pub trait Interpolant {
     type Scalar: Float + Clone + Debug + 'static;
 
+    fn integrate(&self) -> Self::Scalar;
+
     fn evaluate(&self, x: Self::Scalar) -> Self::Scalar;
     fn evaluate_many(&self, points: &[Self::Scalar]) -> Vec<Self::Scalar>;
 
