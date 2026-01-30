@@ -5,7 +5,7 @@ use std::{
 };
 
 use nalgebra::Point2;
-use num::{Float, Zero};
+use num::{Float};
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::interpolation::{FreeVariables, IFSMap, Interpolant};
@@ -139,21 +139,27 @@ where
         }
     }
 
-    /// Returns the MSE(Mean Sqaure Error) of the Interpolant calculated from the given test
+    /// Returns the MSE (Mean Square Error) of the Interpolant calculated from the given test
     /// points.
     pub fn get_mse(&self, test_points: &[Point2<T>]) -> T {
-        let n = T::from(test_points.len()).unwrap();
+        let interp_points: Vec<Point2<T>> = test_points
+            .iter()
+            .map(|p| Point2::new(p.x, self.evaluate(p.x)))
+            .collect();
+        
+        super::metrics::mse(&interp_points, test_points)
+    }
 
-        test_points
-            .par_iter()
-            .map(|p: &Point2<T>| -> T {
-                let y_pred = self.evaluate(p.x);
-                let y_true = p.y;
-                let diff = y_pred - y_true;
-                diff * diff
-            })
-            .sum::<T>()
-            / n
+    /// Returns the symmetric Hausdorff distance between the interpolant curve and the given test points.
+    /// It is better suited for fractal interpolation than MSE as it tries to match the shape of the
+    /// curve rather than the values of the curve.
+    pub fn get_hausdorff(&self, test_points: &[Point2<T>]) -> T {
+        let interp_points: Vec<Point2<T>> = test_points
+            .iter()
+            .map(|p| Point2::new(p.x, self.evaluate(p.x)))
+            .collect();
+        
+        super::metrics::hausdorff(&interp_points, test_points)
     }
 }
 
@@ -203,6 +209,7 @@ where
 
         for _ in 0..self.iterations {
             let map_idx = self.maps.partition_point(|m| m.end_x <= x);
+            let map_idx = map_idx.min(self.maps.len() - 1);
             let map = &self.maps[map_idx];
 
             let start_x = if map_idx == 0 {
