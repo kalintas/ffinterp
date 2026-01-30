@@ -6,7 +6,6 @@ use num::Float;
 use cust::DeviceCopy;
 
 pub mod one_d;
-pub mod metrics;
 
 #[derive(Clone, Debug)]
 pub enum FreeVariables<T> {
