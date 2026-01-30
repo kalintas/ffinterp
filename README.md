@@ -54,4 +54,3 @@ cargo bench
 ### TODO
 - [ ] Add more documentation 
 - [ ] Increase test coverage 
-- [ ] A working python binding
