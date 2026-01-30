@@ -147,7 +147,7 @@ where
             .map(|p| Point2::new(p.x, self.evaluate(p.x)))
             .collect();
         
-        super::metrics::mse(&interp_points, test_points)
+        crate::metrics::mse(&interp_points, test_points)
     }
 
     /// Returns the symmetric Hausdorff distance between the interpolant curve and the given test points.
@@ -159,7 +159,7 @@ where
             .map(|p| Point2::new(p.x, self.evaluate(p.x)))
             .collect();
         
-        super::metrics::hausdorff(&interp_points, test_points)
+        crate::metrics::hausdorff(&interp_points, test_points)
     }
 }
 
@@ -323,6 +323,8 @@ mod tests {
 
     use assert_approx_eq::assert_approx_eq;
 
+    use crate::test_functions::{weierstrass, weierstrass_integral, wen};
+
     use super::*;
 
     fn test_with_function<T: Fn(f64) -> f64>(func: T) {
@@ -380,5 +382,47 @@ mod tests {
 
             product
         })
+    }
+
+    #[test]
+    fn test_integral_against_weierstrass() {
+        let n = 2000;
+        let x_start = 0.0;
+        let x_end = 1.0;
+        
+        let mut points = Vec::new();
+        for i in 0..=n {
+            let x = x_start + (x_end - x_start) * (i as f64 / n as f64);
+            points.push(Point2::new(x, weierstrass(x)));
+        }
+
+        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.1), 50);
+
+        let calculated_integral = interpolant.integrate();
+
+        let expected_integral = weierstrass_integral(x_end) - weierstrass_integral(x_start);
+
+        assert_approx_eq!(calculated_integral, expected_integral, 1e-4);
+    }
+
+    #[test]
+    fn test_integral_against_wen() {
+        let n = 5000; 
+        let x_start = 0.0;
+        let x_end = 2.0;
+        
+        let mut points = Vec::new();
+        for i in 0..=n {
+            let x = x_start + (x_end - x_start) * (i as f64 / n as f64);
+            points.push(Point2::new(x, wen(x)));
+        }
+
+        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.1), 50);
+
+        let calculated_integral = interpolant.integrate();
+
+        let expected_integral = 2.0;
+
+        assert_approx_eq!(calculated_integral, expected_integral, 1e-3);
     }
 }
