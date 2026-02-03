@@ -18,6 +18,12 @@ pub fn bench_evaluation(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("1d_sine_wave_interpolation");
     for &n_points in &[10_000, 100_000, 1_000_000, 10_000_000] {
+        if n_points >= 1_000_000 {
+            group.sample_size(10); 
+        } else {
+            group.sample_size(100); 
+        }
+
         let input_size = n_points;
         let inputs: Vec<f64> = (0..input_size)
             .map(|i| i as f64 / input_size as f64)
