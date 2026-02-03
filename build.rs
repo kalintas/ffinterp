@@ -1,11 +1,11 @@
-use std::env;
-use std::path;
-
 #[cfg(feature = "cuda")]
 use cuda_builder::CudaBuilder;
 
 #[cfg(feature = "cuda")]
 fn build_cuda() {
+    use std::env;
+    use std::path;
+
     println!("cargo::rerun-if-changed=build.rs");
     println!("cargo::rerun-if-changed=kernels");
 
