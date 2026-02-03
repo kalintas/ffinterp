@@ -1,3 +1,5 @@
+pub mod interactive;
+
 use eframe::egui;
 use egui_plot::{Legend, Line, MarkerShape, Plot, PlotPoints, Points};
 

@@ -36,6 +36,12 @@ assert_approx_eq = "1.1.0"
 # For plotting in the examples
 egui_plot = "0.34.0"
 eframe = "0.33.2"
+# For interactive examples
+imgui = "0.11.0"
+imgui-sdl2-support = "0.11.0"
+imgui-glow-renderer = "0.11.0"
+sdl2 = "0.34.5"
+glow = "0.12.3"
 
 [[bench]]
 name = "interpolation_bench"
