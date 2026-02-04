@@ -119,7 +119,7 @@ where
     gl_attr.set_multisample_samples(4);
 
     let window = video
-        .window("Fractal Interpolation Lab", 1280, 768)
+        .window("ffinterp interactive", 1280, 768)
         .position_centered()
         .opengl()
         .resizable()
@@ -164,8 +164,16 @@ where
     'main: loop {
         for event in event_pump.poll_iter() {
             platform.handle_event(&mut imgui, &event);
-            if let Event::Quit { .. } = event {
-                break 'main;
+            match event {
+                Event::Quit { .. } => break 'main,
+                Event::MultiGesture { d_dist, .. } => {
+                    // Pinch to zoom
+                    // d_dist is the difference in distance between fingers (norm -1 to 1)
+                    // A value of 0 means no change. Positive means zoom in, negative zoom out.
+                    let zoom_factor = 1.0 + d_dist * 2.0; // Scale factor for sensitivity
+                    view.zoom = (view.zoom * zoom_factor).clamp(0.1, 100.0);
+                }
+                _ => {}
             }
         }
 
@@ -292,6 +300,13 @@ where
                 ui.text(format!("Hausdorff: {}", data.hausdorff));
                 //ui.text(format!("Dimension: {:.4}", data.dimension));
                 ui.text(format!("Integral: {}", data.integral));
+                // Touch scroll logic
+                if ui.is_window_hovered() && !ui.is_any_item_active() && ui.is_mouse_down(imgui::MouseButton::Left) {
+                    let mouse_delta = ui.io().mouse_delta;
+                    if mouse_delta[1] != 0.0 {
+                        ui.set_scroll_y(ui.scroll_y() - mouse_delta[1]);
+                    }
+                }
             });
 
         // 2. Free Variables Window (only shown when using individual d)
@@ -357,6 +372,14 @@ where
                                 if idx < settings.d_values.len() {
                                     let item_height = ui.text_line_height_with_spacing();
                                     ui.set_scroll_y(idx as f32 * item_height);
+                                }
+                            }
+                            
+                            // Touch scroll logic for list
+                            if ui.is_window_hovered() && !ui.is_any_item_active() && ui.is_mouse_down(imgui::MouseButton::Left) {
+                                let mouse_delta = ui.io().mouse_delta;
+                                if mouse_delta[1] != 0.0 {
+                                    ui.set_scroll_y(ui.scroll_y() - mouse_delta[1]);
                                 }
                             }
                         });
