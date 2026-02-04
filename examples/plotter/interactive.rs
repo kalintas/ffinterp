@@ -104,7 +104,7 @@ impl ViewState {
 /// Main function to show the interactive plotter
 /// 
 /// The update_fn takes PlotSettings and returns PlotData
-pub fn show_plot_interactive<F>(mut update_fn: F)
+pub fn show_plot_interactive<F>(function_names: &[&str], mut update_fn: F)
 where
     F: FnMut(&PlotSettings) -> PlotData + 'static,
 {
@@ -154,9 +154,6 @@ where
     let mut range_start_input: f32 = settings.range_start as f32;
     let mut range_end_input: f32 = settings.range_end as f32;
     let mut selected_func: usize = settings.selected_function;
-    
-    // Function names for the combo box
-    let function_names = ["Weierstrass", "Blancmange", "Multifractal", "Takagi", "Devil's Staircase", "Sine Wave", "Wen"];
     
     // Scroll position for free variables window
     let mut d_scroll_to: Option<usize> = None;

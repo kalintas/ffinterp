@@ -59,8 +59,12 @@ fn devils_staircase(x: f64) -> f64 {
     result
 }
 
-fn sine_wave(x: f64) -> f64 {
-    (2.0 * x).sin() + 0.5 * (5.0 * x).sin()
+fn ackley_slice(x: f64) -> f64 {
+    test_functions::ackley(x, 0.0)
+}
+
+fn rastrigin_slice(x: f64) -> f64 {
+    test_functions::rastrigin(x, 0.0)
 }
 
 fn get_function(idx: usize) -> fn(f64) -> f64 {
@@ -70,14 +74,36 @@ fn get_function(idx: usize) -> fn(f64) -> f64 {
         2 => multifractal,
         3 => takagi,
         4 => devils_staircase,
-        5 => sine_wave,
+        5 => f64::sin,
         6 => test_functions::wen,
+        7 => test_functions::parabol,
+        8 => test_functions::riemann,
+        9 => ackley_slice,
+        10 => rastrigin_slice,
         _ => test_functions::weierstrass,
     }
 }
 
+fn get_function_names() -> &'static [&'static str] {
+    &[
+        "Weierstrass", 
+        "Blancmange", 
+        "Multifractal", 
+        "Takagi", 
+        "Devil's Staircase", 
+        "Sine Wave", 
+        "Wen",
+        "Parabol",
+        "Riemann",
+        "Ackley (y=0)",
+        "Rastrigin (y=0)",
+        "Eggholder (y=0)"
+    ]
+}
+
 fn main() {
-    show_plot_interactive(move |settings: &PlotSettings| {
+    let function_names = get_function_names();
+    show_plot_interactive(function_names, move |settings: &PlotSettings| {
         let n = settings.n;
         let factor = settings.test_factor;
         let range_start = settings.range_start;
