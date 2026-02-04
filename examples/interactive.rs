@@ -96,8 +96,7 @@ fn get_function_names() -> &'static [&'static str] {
         "Parabol",
         "Riemann",
         "Ackley (y=0)",
-        "Rastrigin (y=0)",
-        "Eggholder (y=0)"
+        "Rastrigin (y=0)"
     ]
 }
 
