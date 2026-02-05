@@ -51,6 +51,17 @@ python -m examples/calling_from_python
 cargo bench
 ```
 
+### Profiling
+Profiling in this project is done with [samply](https://github.com/mstange/samply) and [cargo-instruments](https://github.com/cmyr/cargo-instruments). cargo-instruments works only on the macOS. And you will need the Xcode instruments to run it.
+Here is how to profile an example.
+```
+samply record cargo run -r --example one_d_print_sine_wave_integral
+```
+Or
+```
+cargo instruments --release --example one_d_print_sine_wave_integral -t "Time Profiler"
+```
+
 ### TODO
 - [ ] Add more documentation 
 - [ ] Increase test coverage 

@@ -40,3 +40,7 @@ eframe = "0.33.2"
 [[bench]]
 name = "interpolation_bench"
 harness = false
+
+# Let the compiler generate the debugging symbols even in release mode for the profiling tools.
+[profile.release]
+debug = true
