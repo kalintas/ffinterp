@@ -30,7 +30,7 @@ cargo run -r --example one_d_sine_wave_interpolation
 ### Running Julia bindings example
 First build the project with cargo build -r, then go into the Julia REPL and add the bindings as a development dependency.
 ```
-cargo build -r
+cargo build -r --features julia
 julia --project=.
 pkg> dev bindings/julia/FFInterp
 include("examples/calling_from_julia.jl")
@@ -39,6 +39,7 @@ include("examples/calling_from_julia.jl")
 ### Running Python bindings example
 To run the python example, first create a virtual environment and install the requirements. Then use maturin develop to create a development environment for the Python bindings.
 ```
+cargo build -r --features python
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r examples/requirements.txt
