@@ -103,22 +103,26 @@ impl PyInterpolant {
                 .collect();
 
             let mse: f64 = match &self.inner {
-                InterpolantInner::F32(interp) => test_points
-                    .iter()
-                    .map(|p| {
-                        let diff = interp.evaluate(p.x) - p.y;
-                        (diff * diff) as f64
-                    })
-                    .sum::<f64>()
-                    / test_points.len() as f64,
-                InterpolantInner::F64(interp) => test_points
-                    .iter()
-                    .map(|p| {
-                        let diff = interp.evaluate(p.x as f64) - p.y as f64;
-                        diff * diff
-                    })
-                    .sum::<f64>()
-                    / test_points.len() as f64,
+                InterpolantInner::F32(interp) => {
+                    test_points
+                        .iter()
+                        .map(|p| {
+                            let diff = interp.evaluate(p.x) - p.y;
+                            (diff * diff) as f64
+                        })
+                        .sum::<f64>()
+                        / test_points.len() as f64
+                }
+                InterpolantInner::F64(interp) => {
+                    test_points
+                        .iter()
+                        .map(|p| {
+                            let diff = interp.evaluate(p.x as f64) - p.y as f64;
+                            diff * diff
+                        })
+                        .sum::<f64>()
+                        / test_points.len() as f64
+                }
             };
             Ok(mse)
         } else if let Ok(arr) = points.extract::<PyReadonlyArray1<f64>>(py) {
@@ -134,22 +138,26 @@ impl PyInterpolant {
                 .collect();
 
             let mse: f64 = match &self.inner {
-                InterpolantInner::F32(interp) => test_points
-                    .iter()
-                    .map(|p| {
-                        let diff = interp.evaluate(p.x as f32) as f64 - p.y;
-                        diff * diff
-                    })
-                    .sum::<f64>()
-                    / test_points.len() as f64,
-                InterpolantInner::F64(interp) => test_points
-                    .iter()
-                    .map(|p| {
-                        let diff = interp.evaluate(p.x) - p.y;
-                        diff * diff
-                    })
-                    .sum::<f64>()
-                    / test_points.len() as f64,
+                InterpolantInner::F32(interp) => {
+                    test_points
+                        .iter()
+                        .map(|p| {
+                            let diff = interp.evaluate(p.x as f32) as f64 - p.y;
+                            diff * diff
+                        })
+                        .sum::<f64>()
+                        / test_points.len() as f64
+                }
+                InterpolantInner::F64(interp) => {
+                    test_points
+                        .iter()
+                        .map(|p| {
+                            let diff = interp.evaluate(p.x) - p.y;
+                            diff * diff
+                        })
+                        .sum::<f64>()
+                        / test_points.len() as f64
+                }
             };
             Ok(mse)
         } else {

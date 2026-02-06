@@ -1,7 +1,6 @@
-
 use num::Float;
-use std::f64::consts::PI;
 use std::f64::consts::E;
+use std::f64::consts::PI;
 
 pub fn weierstrass<F: Float>(x: F) -> F {
     let a = F::from(0.5).unwrap();
@@ -18,12 +17,14 @@ pub fn weierstrass_integral(x: f64) -> f64 {
     let a = 0.5f64;
     let b = 3.0f64;
     let pi = std::f64::consts::PI;
-    
-    (0..30).map(|n| {
-        let numerator = a.powi(n);
-        let denominator = b.powi(n) * pi;
-        (numerator / denominator) * (b.powi(n) * pi * x).sin()
-    }).sum()
+
+    (0..30)
+        .map(|n| {
+            let numerator = a.powi(n);
+            let denominator = b.powi(n) * pi;
+            (numerator / denominator) * (b.powi(n) * pi * x).sin()
+        })
+        .sum()
 }
 
 pub fn wen<F: Float>(x: F) -> F {
@@ -47,7 +48,6 @@ pub fn wen<F: Float>(x: F) -> F {
 
     product
 }
-
 
 pub fn parabol<F: Float>(x: F) -> F {
     let one = F::one();
@@ -80,9 +80,7 @@ pub fn rastrigin<F: Float>(x: F, y: F) -> F {
     let ten = F::from(10.0).unwrap();
     let two_pi = F::from(2.0 * PI).unwrap();
 
-    twenty + 
-    (x.powi(2) - ten * (two_pi * x).cos()) + 
-    (y.powi(2) - ten * (two_pi * y).cos())
+    twenty + (x.powi(2) - ten * (two_pi * x).cos()) + (y.powi(2) - ten * (two_pi * y).cos())
 }
 
 pub fn eggholder<F: Float>(x: F, y: F) -> F {

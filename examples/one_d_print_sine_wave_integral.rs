@@ -22,8 +22,8 @@ fn main() {
     }
 
     let result = interpolant.evaluate_many(&test_x);
-    
+
     println!("{}", interpolant.integrate());
-    
+
     black_box(result);
 }

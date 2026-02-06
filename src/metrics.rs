@@ -2,7 +2,7 @@ use std::{fmt::Debug, iter::Sum};
 
 use nalgebra::Point2;
 use num::Float;
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator, IndexedParallelIterator};
+use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 /// Returns the MSE (Mean Square Error) between two sets of points.
 /// Points are compared by their y-values at matching indices.
@@ -112,7 +112,7 @@ mod tests {
         let rhs = vec![pt(0.0, 1.0)];
         mse(&lhs, &rhs);
     }
-    
+
     /// Hausdorff Tests
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
         // A is a unit circle, B is a circle with radius 2
         let a = vec![pt(1.0, 0.0), pt(0.0, 1.0), pt(-1.0, 0.0), pt(0.0, -1.0)];
         let b = vec![pt(2.0, 0.0), pt(0.0, 2.0), pt(-2.0, 0.0), pt(0.0, -4.0)];
-        
+
         // Symmetric Hausdorff should be the max of both directions
         // From A to B: max distance is from (0, -1) to closest in B
         // From B to A: max distance is from (0, -4) to closest in A = 3.0
