@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use glow::HasContext;
 use imgui::{Condition, Context, MouseButton};
 use imgui_glow_renderer::AutoRenderer;
@@ -38,6 +40,8 @@ pub struct PlotSettings {
     /// Individual free variables d_i for each interval (when use_individual_d is true)
     /// Length should be n-1
     pub d_values: Vec<f64>,
+    /// Number of fractal iterations (depth)
+    pub iterations: usize,
 }
 
 impl Default for PlotSettings {
@@ -51,6 +55,7 @@ impl Default for PlotSettings {
             use_individual_d: false,
             d_scalar: 0.15,
             d_values: Vec::new(),
+            iterations: 1000,
         }
     }
 }
@@ -154,6 +159,7 @@ where
     let mut range_start_input: f32 = settings.range_start as f32;
     let mut range_end_input: f32 = settings.range_end as f32;
     let mut selected_func: usize = settings.selected_function;
+    let mut iterations_input: i32 = settings.iterations as i32;
     
     // Scroll position for free variables window
     let mut d_scroll_to: Option<usize> = None;
@@ -206,6 +212,13 @@ where
                 if ui.input_int("Test Factor", &mut factor_input).build() {
                     factor_input = factor_input.clamp(1, 10000);
                     settings.test_factor = factor_input as usize;
+                    needs_update = true;
+                }
+                
+                ui.set_next_item_width(100.0);
+                if ui.input_int("Iterations", &mut iterations_input).build() {
+                    iterations_input = iterations_input.clamp(0, 10000);
+                    settings.iterations = iterations_input as usize;
                     needs_update = true;
                 }
                 

@@ -25,15 +25,6 @@ fn multifractal(x: f64) -> f64 {
     }).sum()
 }
 
-/// Takagi function (also called Blancmange): Classic self-similar fractal
-fn takagi(x: f64) -> f64 {
-    let s = |val: f64| {
-        let frac = (val - val.floor()).abs();
-        (frac - 0.5).abs()
-    };
-    (0..25).map(|n| 0.5f64.powi(n) * s(2.0f64.powi(n) * x)).sum()
-}
-
 /// Devil's Staircase (Cantor function): A singular continuous function
 fn devils_staircase(x: f64) -> f64 {
     // Approximation using ternary expansion
@@ -72,7 +63,6 @@ fn get_function(idx: usize) -> fn(f64) -> f64 {
         0 => test_functions::weierstrass,
         1 => blancmange,
         2 => multifractal,
-        3 => takagi,
         4 => devils_staircase,
         5 => f64::sin,
         6 => test_functions::wen,
@@ -89,7 +79,6 @@ fn get_function_names() -> &'static [&'static str] {
         "Weierstrass", 
         "Blancmange", 
         "Multifractal", 
-        "Takagi", 
         "Devil's Staircase", 
         "Sine Wave", 
         "Wen",
@@ -122,7 +111,7 @@ fn main() {
             FreeVariables::Scalar(settings.d_scalar)
         };
         
-        let interpolant = Interpolant1D::new(&points, free_vars, 100);
+        let interpolant = Interpolant1D::new(&points, free_vars, settings.iterations);
 
         let mut test_x = Vec::new();
         for i in 0..(n - 1) {

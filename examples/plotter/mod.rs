@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub mod interactive;
 
 use eframe::egui;
