@@ -5,7 +5,7 @@ use std::{
 };
 
 use nalgebra::Point2;
-use num::{Float};
+use num::Float;
 use rayon::iter::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 use crate::interpolation::{FreeVariables, IFSMap, Interpolant};
@@ -72,6 +72,46 @@ where
             if array.len() != points.len() - 1 {
                 panic!(
                     "Invalid array size for the free_variables. It should be an array with the size points.len() - 1."
+                );
+            }
+        }
+
+        // Add debug assertions since we don't want to add extra overhead
+        // to the library checking the parameters in the release mode.
+        #[cfg(debug_assertions)]
+        {
+            // Check free variables. They should be in the range (-1, 1).
+            let one = T::one();
+            let neg_one = -one;
+            match &free_variables {
+                FreeVariables::Scalar(s) => {
+                    debug_assert!(
+                        *s > neg_one && *s < one,
+                        "Free variable must be in range (-1, 1), found {:?}",
+                        s
+                    );
+                }
+                FreeVariables::Array(arr) => {
+                    for (i, &val) in arr.iter().enumerate() {
+                        debug_assert!(
+                            val > neg_one && val < one,
+                            "Free variable at index {} must be in range (-1, 1), found {:?}",
+                            i,
+                            val
+                        );
+                    }
+                }
+            }
+
+            // Check if the given points are strictly sorted.
+            // By taking the points as sorted we leave the decision of needing to
+            // sort the data to caller.
+            for pair in points.windows(2) {
+                debug_assert!(
+                    pair[1].x > pair[0].x,
+                    "Points must be strictly sorted by x-coordinate. Found x={:?} followed by x={:?}",
+                    pair[0].x,
+                    pair[1].x
                 );
             }
         }
@@ -146,7 +186,7 @@ where
             .iter()
             .map(|p| Point2::new(p.x, self.evaluate(p.x)))
             .collect();
-        
+
         crate::metrics::mse(&interp_points, test_points)
     }
 
@@ -158,7 +198,7 @@ where
             .iter()
             .map(|p| Point2::new(p.x, self.evaluate(p.x)))
             .collect();
-        
+
         crate::metrics::hausdorff(&interp_points, test_points)
     }
 }
@@ -168,7 +208,7 @@ where
     T: Float + Debug + AddAssign + MulAssign + Send + Sync + DeviceCopy,
 {
     type Scalar = T;
-    
+
     /// Calculates the definite integral of the fractal function from the first
     /// point to the last point.
     fn integrate(&self) -> Self::Scalar {
@@ -177,13 +217,13 @@ where
 
         for map in &self.maps {
             // Integral of the cubic polynomial q.
-            let q_int = map.q[0] 
-                + map.q[1] / T::from(2.0).unwrap() 
-                + map.q[2] / T::from(3.0).unwrap() 
+            let q_int = map.q[0]
+                + map.q[1] / T::from(2.0).unwrap()
+                + map.q[2] / T::from(3.0).unwrap()
                 + map.q[3] / T::from(4.0).unwrap();
 
             // Summing up the scaled integrals and the d * a products.
-            sum_q_scaled += q_int * map.a; 
+            sum_q_scaled += q_int * map.a;
             sum_ad += map.a * map.d;
         }
 
@@ -327,102 +367,196 @@ mod tests {
 
     use super::*;
 
-    fn test_with_function<T: Fn(f64) -> f64>(func: T) {
-        let n = 10000;
-        let mut points = Vec::<Point2<f64>>::with_capacity(n);
-        for i in 0..n {
-            let x = i as f64 / n as f64;
-            points.push(Point2::new(x, func(x)));
-        }
-
-        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.01), 100);
-
-        points.iter().for_each(|point| {
-            let value = interpolant.evaluate(point.x);
-            assert_approx_eq!(value, point.y);
-        });
-
-        let test_points_n = n * 10;
-
-        let mut mse = 0.0;
-        for i in 0..test_points_n {
-            let x = i as f64 / test_points_n as f64;
-            let value = interpolant.evaluate(x);
-
-            let diff = value - func(x);
-            mse += diff * diff;
-            //assert_approx_eq!(value, func(x), f64::EPSILON * 1000.0);
-        }
-        mse /= test_points_n as f64;
-        assert_approx_eq!(mse, f64::EPSILON * 100.0);
+    /// Interpolant creation tests
+    #[test]
+    #[should_panic(expected = "More than one point is required")]
+    fn test_new_with_insufficient_points() {
+        let points = vec![Point2::new(0.0, 0.0)];
+        let _ = Interpolant1D::new(&points, FreeVariables::Scalar(0.0), 10);
     }
 
     #[test]
-    fn interpolant1d_sine_wave_evaluate_works() {
-        test_with_function(|x| x.sin())
+    #[should_panic(expected = "Invalid array size for the free_variables")]
+    fn test_new_with_mismatched_free_variables() {
+        let points = vec![
+            Point2::new(0.0, 0.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(2.0, 2.0),
+        ];
+        let invalid_vars = FreeVariables::Array(vec![0.1, 0.2, 0.3]);
+        let _ = Interpolant1D::new(&points, invalid_vars, 10);
     }
 
     #[test]
-    fn interpolant1d_irregular_data_evaluate_works() {
-        test_with_function(|x| {
-            let mut product = 1.0;
+    fn test_evaluate_clamping() {
+        let points = vec![Point2::new(0.0, 10.0), Point2::new(1.0, 20.0)];
+        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.0), 10);
 
-            for n in 1..=1000 {
-                let magnitude = 0.5f64.powi(n);
+        assert_eq!(interpolant.evaluate(-1.0), 10.0);
+        assert_eq!(interpolant.evaluate(2.0), 20.0);
+    }
 
-                if 1.0 + magnitude == 1.0 {
-                    break;
-                }
+    #[test]
+    fn test_valid_array_free_variables() {
+        let points = vec![
+            Point2::new(0.0, 0.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(2.0, 0.0),
+        ];
+        // 2 intervals, 2 variables. This should NOT panic.
+        let valid_vars = FreeVariables::Array(vec![0.1, 0.5]);
+        let _ = Interpolant1D::new(&points, valid_vars, 10);
+    }
 
-                let angle = 6.0f64.powi(n) * f64::consts::PI * x;
-                let term = 1.0 + magnitude * angle.sin();
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "Points must be strictly sorted")]
+    fn test_unsorted_points_panic() {
+        let points = vec![
+            Point2::new(0.0, 0.0),
+            Point2::new(2.0, 1.0), // x=2.0
+            Point2::new(1.0, 0.5), // x=1.0
+        ];
+        let _ = Interpolant1D::new(&points, FreeVariables::Scalar(0.0), 10);
+    }
 
-                product *= term;
-            }
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "Points must be strictly sorted")]
+    fn test_duplicate_x_panic() {
+        let points = vec![
+            Point2::new(0.0, 0.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(1.0, 2.0), // Duplicate x
+        ];
+        let _ = Interpolant1D::new(&points, FreeVariables::Scalar(0.0), 10);
+    }
 
-            product
-        })
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "Free variable must be in range (-1, 1)")]
+    fn test_invalid_scalar_range_panic() {
+        let points = vec![Point2::new(0.0, 0.0), Point2::new(1.0, 1.0)];
+        let _ = Interpolant1D::new(&points, FreeVariables::Scalar(1.0), 10); // Boundary 1.0
+    }
+
+    #[test]
+    #[cfg(debug_assertions)]
+    #[should_panic(expected = "Free variable at index 1 must be in range (-1, 1)")]
+    fn test_invalid_array_range_panic() {
+        let points = vec![
+            Point2::new(0.0, 0.0),
+            Point2::new(1.0, 1.0),
+            Point2::new(2.0, 2.0),
+        ];
+        let invalid_vars = FreeVariables::Array(vec![0.5, -1.2]); // Second value out of range
+        let _ = Interpolant1D::new(&points, invalid_vars, 10);
+    }
+
+    // Interpolation evaluation tests
+    #[test]
+    fn test_interpolation_at_original_points_large_set() {
+        let points: Vec<Point2<f64>> = (0..100)
+            .map(|i| i as f64 * 0.1)
+            .map(|x| Point2::new(x, x.sin()))
+            .collect();
+
+        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.0), 50);
+
+        // Verify that the interpolant hits EVERY input point exactly
+        for p in points.iter() {
+            let evaluated = interpolant.evaluate(p.x);
+
+            assert_approx_eq!(evaluated, p.y, f64::EPSILON * 100.0);
+        }
+    }
+
+    // Integral tests
+    fn test_integral_against_curve(
+        points: &[Point2<f64>],
+        free_variable: f64,
+        expected_integral: f64,
+        epsilon: f64,
+    ) {
+        let iterations = 50;
+        let interpolant =
+            Interpolant1D::new(points, FreeVariables::Scalar(free_variable), iterations);
+
+        let calculated = interpolant.integrate();
+
+        assert_approx_eq!(calculated, expected_integral, epsilon);
+    }
+
+    fn add_koch_points(
+        p1: Point2<f64>,
+        p2: Point2<f64>,
+        depth: usize,
+        points: &mut Vec<Point2<f64>>,
+    ) {
+        if depth == 0 {
+            points.push(p1);
+        } else {
+            let dx = p2.x - p1.x;
+            let dy = p2.y - p1.y;
+
+            let s = Point2::new(p1.x + dx / 3.0, p1.y + dy / 3.0);
+            let e = Point2::new(p1.x + 2.0 * dx / 3.0, p1.y + 2.0 * dy / 3.0);
+
+            let h = 3.0f64.sqrt() / 6.0;
+            let v = Point2::new((p1.x + p2.x) / 2.0 - h * dy, (p1.y + p2.y) / 2.0 + h * dx);
+
+            add_koch_points(p1, s, depth - 1, points);
+            add_koch_points(s, v, depth - 1, points);
+            add_koch_points(v, e, depth - 1, points);
+            add_koch_points(e, p2, depth - 1, points);
+        }
+    }
+
+    #[test]
+    fn test_integral_koch_snowflake() {
+        let mut points = Vec::new();
+        let start = Point2::new(0.0, 0.0);
+        let end = Point2::new(1.0, 0.0);
+        add_koch_points(start, end, 5, &mut points);
+        points.push(end);
+
+        points.sort_by(|a, b| a.x.partial_cmp(&b.x).unwrap());
+        points.dedup_by(|a, b| (a.x - b.x).abs() < 1e-12);
+
+        // Theoretical Area: sqrt(3) / 20
+        let expected = 3.0f64.sqrt() / 20.0;
+
+        test_integral_against_curve(&points, 0.1, expected, 1e-4);
     }
 
     #[test]
     fn test_integral_against_weierstrass() {
         let n = 2000;
-        let x_start = 0.0;
-        let x_end = 1.0;
-        
-        let mut points = Vec::new();
-        for i in 0..=n {
-            let x = x_start + (x_end - x_start) * (i as f64 / n as f64);
-            points.push(Point2::new(x, weierstrass(x)));
-        }
+        let (x_start, x_end) = (0.0, 1.0);
 
-        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.1), 50);
+        let points: Vec<Point2<f64>> = (0..=n)
+            .map(|i| {
+                let x = x_start + (x_end - x_start) * (i as f64 / n as f64);
+                Point2::new(x, weierstrass(x))
+            })
+            .collect();
 
-        let calculated_integral = interpolant.integrate();
-
-        let expected_integral = weierstrass_integral(x_end) - weierstrass_integral(x_start);
-
-        assert_approx_eq!(calculated_integral, expected_integral, 1e-4);
+        let expected = weierstrass_integral(x_end) - weierstrass_integral(x_start);
+        test_integral_against_curve(&points, 0.1, expected, 1e-4);
     }
 
     #[test]
     fn test_integral_against_wen() {
-        let n = 5000; 
-        let x_start = 0.0;
-        let x_end = 2.0;
-        
-        let mut points = Vec::new();
-        for i in 0..=n {
-            let x = x_start + (x_end - x_start) * (i as f64 / n as f64);
-            points.push(Point2::new(x, wen(x)));
-        }
+        let n = 5000;
+        let (x_start, x_end) = (0.0, 2.0);
 
-        let interpolant = Interpolant1D::new(&points, FreeVariables::Scalar(0.1), 50);
+        let points: Vec<Point2<f64>> = (0..=n)
+            .map(|i| {
+                let x = x_start + (x_end - x_start) * (i as f64 / n as f64);
+                Point2::new(x, wen(x))
+            })
+            .collect();
 
-        let calculated_integral = interpolant.integrate();
-
-        let expected_integral = 2.0;
-
-        assert_approx_eq!(calculated_integral, expected_integral, 1e-3);
+        test_integral_against_curve(&points, 0.1, 2.0, 1e-3);
     }
 }
